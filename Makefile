@@ -14,3 +14,7 @@ up:
 
 down:
 	$(MAKE) -C test-cluster down
+
+run: up
+run: build
+	target/debug/kube-gestalt
