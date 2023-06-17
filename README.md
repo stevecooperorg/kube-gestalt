@@ -12,7 +12,7 @@ Here's the problem. When you are debugging a kubernetes application, sometimes y
 
 in more detail;
 
-- create a cluster for local testing using KinD.
+- create a cluster for local testing using KinD. -- https://kind.sigs.k8s.io/docs/user/quick-start/
 - create a basic web server which can connect to a kubernetes API
 - create an example kube-gestalt app which monitors pods and nodes
 - in the example, create a pod-node gestalt which shows the pod and details from the node it's running from
