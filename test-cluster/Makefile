@@ -1,5 +1,9 @@
 up:
-	kind create cluster --name test-cluster --config kind-config.yaml
+	if ! kind get clusters | grep -q test-cluster; then\
+		kind create cluster --name test-cluster --config kind-config.yaml;\
+	fi
 
 down:
-	kind delete cluster --name test-cluster
+	if kind get clusters | grep -q test-cluster; then\
+		kind delete cluster --name test-cluster;\
+	fi
