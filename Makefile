@@ -15,6 +15,11 @@ up:
 down:
 	$(MAKE) -C test-cluster down
 
-run: up
-run: build
+run: up build FORCE
 	target/debug/kube-gestalt
+
+watch: up FORCE
+	cargo watch -x "test" -x "run"
+
+.PHOMY: FORCE
+FORCE:
