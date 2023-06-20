@@ -1,11 +1,15 @@
+use crate::store;
 use crate::webserver::Router;
 use axum::response::{Html, IntoResponse};
 use axum::routing::get;
+use axum::Extension;
 use http::StatusCode;
 use k8s_openapi::api::core::v1::{Node, Pod};
-use kube::api::ListParams;
-use kube::{Api, Client, ResourceExt};
+use kube::runtime::reflector::Store;
+use kube::{Client, ResourceExt};
 use rand::RngCore;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 async fn home() -> impl IntoResponse {
     // site homepage
@@ -26,38 +30,19 @@ async fn home() -> impl IntoResponse {
         <ol id="pod-list" hx-get="/pods" hx-trigger="every 2s">
             <li>pod list.</li>
         </ol>
+        <h2>Pod-Node gestalts</h2>
+        <ol id="pod-node-list" hx-get="/podnodes" hx-trigger="every 2s">
+            <li>pod-node gestalt list.</li>
+        </ol>
     </body>
 </html>
     "##,
     )
 }
 
-async fn nodes() -> impl IntoResponse {
-    // connect to the current context and list nodes;
-    let client = match Client::try_default().await {
-        Ok(client) => client,
-        Err(_) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                [("content-type", "text/plain")],
-                "sorry, cannot create a client".to_string(),
-            );
-        }
-    };
-
-    let api: Api<Node> = Api::all(client);
-    let nodes = match api.list(&ListParams::default()).await {
-        Ok(nodes) => nodes,
-        Err(_) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                [("content-type", "text/plain")],
-                "sorry, cannot list nodes".to_string(),
-            );
-        }
-    };
-
-    let list_items: Vec<String> = nodes
+async fn nodes(node_list: Extension<Store<Node>>) -> impl IntoResponse {
+    let list_items: Vec<String> = node_list
+        .state()
         .iter()
         .map(node_summary)
         .map(|n| format!("<li>{}</li>", n))
@@ -67,32 +52,9 @@ async fn nodes() -> impl IntoResponse {
     (StatusCode::OK, [("content-type", "text/html")], html)
 }
 
-async fn pods() -> impl IntoResponse {
-    // connect to the current context and list nodes;
-    let client = match Client::try_default().await {
-        Ok(client) => client,
-        Err(_) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                [("content-type", "text/plain")],
-                "sorry, cannot create a client".to_string(),
-            );
-        }
-    };
-
-    let api: Api<Pod> = Api::all(client);
-    let pods = match api.list(&ListParams::default()).await {
-        Ok(nodes) => nodes,
-        Err(_) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                [("content-type", "text/plain")],
-                "sorry, cannot list pods".to_string(),
-            );
-        }
-    };
-
-    let list_items: Vec<String> = pods
+async fn pods(pod_list: Extension<Store<Pod>>) -> impl IntoResponse {
+    let list_items: Vec<String> = pod_list
+        .state()
         .iter()
         .map(pod_summary)
         .map(|n| format!("<li>{}</li>", n))
@@ -102,7 +64,38 @@ async fn pods() -> impl IntoResponse {
     (StatusCode::OK, [("content-type", "text/html")], html)
 }
 
-fn node_summary(node: &Node) -> String {
+async fn podnodes(
+    pod_list: Extension<Store<Pod>>,
+    node_list: Extension<Store<Node>>,
+) -> impl IntoResponse {
+    let node_dict: HashMap<_, _> = node_list
+        .state()
+        .into_iter()
+        .map(|n| (n.name_unchecked(), n))
+        .collect();
+
+    let list_items: Vec<String> = pod_list
+        .state()
+        .iter()
+        .map(|p| {
+            let pod_summary = pod_summary(p);
+            let node_name: String = p
+                .spec
+                .as_ref()
+                .and_then(|s| s.node_name.clone())
+                .unwrap_or_else(|| "<no node>".to_string());
+            let node = node_dict.get(&node_name).unwrap();
+            let node_summary = node_summary(node);
+            format!("{} on {}", pod_summary, node_summary)
+        })
+        .map(|n| format!("<li>{}</li>", n))
+        .collect::<Vec<String>>();
+    let html: String = list_items.join("\n");
+
+    (StatusCode::OK, [("content-type", "text/html")], html)
+}
+
+fn node_summary(node: &Arc<Node>) -> String {
     let name = node.name_unchecked();
     let allocatable_mem = node
         .status
@@ -115,7 +108,7 @@ fn node_summary(node: &Node) -> String {
     format!("{}, {} allocatable", name, allocatable_mem)
 }
 
-fn pod_summary(pod: &Pod) -> String {
+fn pod_summary(pod: &Arc<Pod>) -> String {
     let name = pod.name_unchecked();
     let namespace = pod.namespace().unwrap_or_default();
     let status = pod
@@ -138,10 +131,18 @@ fn next_u32() -> u32 {
     rnd.next_u32()
 }
 
-pub fn routes() -> Router {
+pub fn routes(client: Client) -> Router {
+    let (_nodes, _node_handle) =
+        store::cluster_store::<Node>(client.clone()).expect("could not start store");
+    let (_pods, _pod_handle) =
+        store::cluster_store::<Pod>(client.clone()).expect("could not start store");
+
     Router::new()
         .route("/", get(home))
         .route("/random", get(random))
         .route("/nodes", get(nodes))
         .route("/pods", get(pods))
+        .route("/podnodes", get(podnodes))
+        .layer(Extension(_nodes))
+        .layer(Extension(_pods))
 }
