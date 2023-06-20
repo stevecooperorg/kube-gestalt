@@ -1,6 +1,7 @@
 mod router;
 mod webserver;
 
+use crate::webserver::SocketAddrHelper;
 use anyhow::Result;
 use k8s_openapi::api::core::v1::Node;
 use kube::api::{Api, ListParams};
@@ -19,10 +20,10 @@ async fn main() -> Result<()> {
         println!("Node: {}", node.metadata.name.unwrap());
     }
 
-    const PORT: u16 = 14324;
-    println!("Start the server: http://localhost:{}", PORT);
+    let addr = SocketAddrHelper::find_open_port();
+    println!("Start the server: http://{}", addr);
     let server = webserver::GestaltRouter::new().with(router::routes());
-    server.serve(PORT).await?;
+    server.serve(addr).await?;
 
     Ok(())
 }
