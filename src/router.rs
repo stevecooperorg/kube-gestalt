@@ -59,8 +59,8 @@ async fn nodes() -> impl IntoResponse {
 
     let list_items: Vec<String> = nodes
         .iter()
-        .map(|n| n.name_unchecked())
-        .map(|n| format!("<li>{} - {}</li>", n, next_u32()))
+        .map(node_summary)
+        .map(|n| format!("<li>{}</li>", n))
         .collect::<Vec<String>>();
     let html: String = list_items.join("\n");
 
@@ -94,12 +94,36 @@ async fn pods() -> impl IntoResponse {
 
     let list_items: Vec<String> = pods
         .iter()
-        .map(|n| n.name_unchecked())
-        .map(|n| format!("<li>{} - {}</li>", n, next_u32()))
+        .map(pod_summary)
+        .map(|n| format!("<li>{}</li>", n))
         .collect::<Vec<String>>();
     let html: String = list_items.join("\n");
 
     (StatusCode::OK, [("content-type", "text/html")], html)
+}
+
+fn node_summary(node: &Node) -> String {
+    let name = node.name_unchecked();
+    let allocatable_mem = node
+        .status
+        .as_ref()
+        .and_then(|s| s.allocatable.as_ref())
+        .and_then(|alloc| alloc.get("memory"))
+        .map(|q| q.0.clone())
+        .unwrap_or_default();
+
+    format!("{}, {} allocatable", name, allocatable_mem)
+}
+
+fn pod_summary(pod: &Pod) -> String {
+    let name = pod.name_unchecked();
+    let namespace = pod.namespace().unwrap_or_default();
+    let status = pod
+        .status
+        .as_ref()
+        .and_then(|s| s.phase.clone())
+        .unwrap_or_default();
+    format!("{}.{}, {}", name, namespace, status)
 }
 
 async fn random() -> impl IntoResponse {
