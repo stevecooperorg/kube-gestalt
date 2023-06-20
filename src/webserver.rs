@@ -11,13 +11,13 @@ use tower_http::ServiceBuilderExt;
 
 pub type Router<B = BoxBody> = axum::Router<(), B>;
 
-pub struct GestaltRouter {
+pub struct GestaltServer {
     router: Router,
 }
 
-impl GestaltRouter {
+impl GestaltServer {
     pub fn new() -> Self {
-        GestaltRouter {
+        GestaltServer {
             router: Router::default(),
         }
     }

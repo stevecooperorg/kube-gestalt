@@ -22,7 +22,7 @@ async fn main() -> Result<()> {
 
     let addr = SocketAddrHelper::find_open_port();
     println!("Start the server: http://{}", addr);
-    let server = webserver::GestaltRouter::new().with(router::routes());
+    let server = webserver::GestaltServer::new().with(router::routes());
     server.serve(addr).await?;
 
     Ok(())
