@@ -5,7 +5,19 @@ use rand::RngCore;
 
 async fn home() -> impl IntoResponse {
     // site homepage
-    Html("<h1>kube-gestalt homepage</h1>")
+    Html(
+        r#"
+<html>
+    <head>
+        <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    </head>
+    <body>
+        <h1>kube-gestalt homepage</h1>
+        <button hx-get="/random" hx-swap="outerHTML">Random</button>
+    </body>
+</html>
+    "#,
+    )
 }
 
 async fn random() -> impl IntoResponse {
