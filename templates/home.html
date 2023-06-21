@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <meta name="author" content="name">
+        <meta name="description" content="description here">
+        <meta name="keywords" content="keywords,here">
+
+        <link href="https://cdn.jsdelivr.net/npm/daisyui@3.1.5/dist/full.css" rel="stylesheet" type="text/css" />
+        <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css">
+        <link rel="stylesheet" href="https://unpkg.com/tailwindcss@2.2.19/dist/tailwind.min.css"/> <!--Replace with your tailwind.css once created-->
+        <link href="https://afeld.github.io/emoji-css/emoji.css" rel="stylesheet"> <!--Totally optional :) -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.bundle.min.js" integrity="sha256-xKeoJ50pzbUGkpQxDYHD7o7hxe0LaOGeguUidbq6vis=" crossorigin="anonymous"></script>
+        <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+        <title>kube-gestalt</title>
+    </head>
+    <body class="font-sans leading-normal tracking-normal mt-12">
+    <h1 class="text-3xl font-bold">kube-gestalt homepage</h1>
+<!--    <h2 class="text-2xl font-bold">Nodes</h2>-->
+<!--    <ol id="node-list" hx-get="/nodes" hx-trigger="every 2s">-->
+<!--    </ol>-->
+<!--    <h2 class="text-2xl font-bold">Pods</h2>-->
+<!--    <ol id="pod-list" hx-get="/pods" hx-trigger="every 2s">-->
+<!--    </ol>-->
+    <h2 class="text-2xl font-bold">Pod-Node gestalts</h2>
+    <ol id="pod-node-list" hx-get="/podnodes" hx-trigger="every 2s">
+    </ol>
+    </body>
+</html>

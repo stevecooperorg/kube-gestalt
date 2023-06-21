@@ -1,5 +1,6 @@
 use crate::store;
 use crate::webserver::Router;
+use askama::Template;
 use axum::response::{Html, IntoResponse};
 use axum::routing::get;
 use axum::Extension;
@@ -11,33 +12,12 @@ use rand::RngCore;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+#[derive(Template)]
+#[template(path = "home.html")]
+struct HomeTemplate {}
+
 async fn home() -> impl IntoResponse {
-    // site homepage
-    Html(
-        r##"
-<html>
-    <head>
-        <script src="https://unpkg.com/htmx.org@1.9.2"></script>
-        <title>kube-gestalt</title>
-    </head>
-    <body>
-        <h1>kube-gestalt homepage</h1>
-        <h2>Nodes</h2>
-        <ol id="node-list" hx-get="/nodes" hx-trigger="every 2s">
-            <li>node list.</li>
-        </ol>
-        <h2>Pods</h2>
-        <ol id="pod-list" hx-get="/pods" hx-trigger="every 2s">
-            <li>pod list.</li>
-        </ol>
-        <h2>Pod-Node gestalts</h2>
-        <ol id="pod-node-list" hx-get="/podnodes" hx-trigger="every 2s">
-            <li>pod-node gestalt list.</li>
-        </ol>
-    </body>
-</html>
-    "##,
-    )
+    HomeTemplate {}
 }
 
 async fn nodes(node_list: Extension<Store<Node>>) -> impl IntoResponse {
@@ -57,11 +37,48 @@ async fn pods(pod_list: Extension<Store<Pod>>) -> impl IntoResponse {
         .state()
         .iter()
         .map(pod_summary)
-        .map(|n| format!("<li>{}</li>", n))
         .collect::<Vec<String>>();
     let html: String = list_items.join("\n");
 
     (StatusCode::OK, [("content-type", "text/html")], html)
+}
+
+#[derive(Template)]
+#[template(path = "pod_node_summary.html")]
+struct PodNodeSummaryTemplate {
+    pod_name: String,
+    pod_namespace: String,
+    pod_status: String,
+    node_name: String,
+    allocatable_mem: String,
+}
+
+fn pod_node_summary(pod: &Arc<Pod>, node: &Arc<Node>) -> String {
+    let pod_name = pod.name_unchecked();
+    let pod_namespace = pod.namespace().unwrap_or_default();
+    let pod_status = pod
+        .status
+        .as_ref()
+        .and_then(|s| s.phase.clone())
+        .unwrap_or_default();
+    let node_name = node.name_unchecked();
+    let allocatable_mem = node
+        .status
+        .as_ref()
+        .and_then(|s| s.allocatable.as_ref())
+        .and_then(|alloc| alloc.get("memory"))
+        .map(|q| q.0.clone())
+        .unwrap_or_default();
+
+    PodNodeSummaryTemplate {
+        pod_name,
+        pod_namespace,
+        node_name,
+        allocatable_mem,
+        pod_status,
+    }
+    .render()
+    .unwrap()
 }
 
 async fn podnodes(
@@ -78,21 +95,25 @@ async fn podnodes(
         .state()
         .iter()
         .map(|p| {
-            let pod_summary = pod_summary(p);
             let node_name: String = p
                 .spec
                 .as_ref()
                 .and_then(|s| s.node_name.clone())
                 .unwrap_or_else(|| "<no node>".to_string());
             let node = node_dict.get(&node_name).unwrap();
-            let node_summary = node_summary(node);
-            format!("{} on {}", pod_summary, node_summary)
+            pod_node_summary(p, node)
         })
-        .map(|n| format!("<li>{}</li>", n))
         .collect::<Vec<String>>();
     let html: String = list_items.join("\n");
 
     (StatusCode::OK, [("content-type", "text/html")], html)
+}
+
+#[derive(Template)]
+#[template(path = "node_summary.html")]
+struct NodeSummaryTemplate {
+    name: String,
+    allocatable_mem: String,
 }
 
 fn node_summary(node: &Arc<Node>) -> String {
@@ -105,7 +126,20 @@ fn node_summary(node: &Arc<Node>) -> String {
         .map(|q| q.0.clone())
         .unwrap_or_default();
 
-    format!("{}, {} allocatable", name, allocatable_mem)
+    NodeSummaryTemplate {
+        name,
+        allocatable_mem,
+    }
+    .render()
+    .unwrap()
+}
+
+#[derive(Template)]
+#[template(path = "pod_summary.html")]
+struct PodSummaryTemplate {
+    name: String,
+    namespace: String,
+    status: String,
 }
 
 fn pod_summary(pod: &Arc<Pod>) -> String {
@@ -116,13 +150,20 @@ fn pod_summary(pod: &Arc<Pod>) -> String {
         .as_ref()
         .and_then(|s| s.phase.clone())
         .unwrap_or_default();
-    format!("{}.{}, {}", name, namespace, status)
+
+    PodSummaryTemplate {
+        name,
+        namespace,
+        status,
+    }
+    .render()
+    .unwrap()
 }
 
 async fn random() -> impl IntoResponse {
     // a paragraph with a random number. Used to show refreshing
     let num = next_u32();
-    let html: String = format!("<p>{num}</h1>");
+    let html: String = format!("<p>{num}</p>");
     Html(html)
 }
 

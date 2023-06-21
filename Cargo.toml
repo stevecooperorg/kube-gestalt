@@ -8,6 +8,9 @@ edition = "2021"
 [dependencies]
 anyhow = { version = "1.0" }
 axum = { version = "0.6" }
+askama = { version = "0.12" }
+askama_axum = { version = "0.3" }
+askama_derive = { version = "0.12", features = ["with-axum"] }
 futures = "0.3"
 futures-util = "0.3"
 http = "0.2"
