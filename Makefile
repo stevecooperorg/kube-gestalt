@@ -19,7 +19,7 @@ run: up build FORCE
 	target/debug/kube-gestalt
 
 watch: up FORCE
-	cargo watch -x "test" -x "run"
+	ngrok http 3001 --domain=$(NGROK_DOMAIN) & cargo watch -x "test" -x "run" && fg
 
 .PHOMY: FORCE
 FORCE:
