@@ -44,6 +44,12 @@ async fn pods(pod_list: Extension<Store<Pod>>) -> impl IntoResponse {
 }
 
 #[derive(Template)]
+#[template(path = "pod_node_summary_list.html", escape = "none")]
+struct PodNodeSummaryListTemplate {
+    items: Vec<PodNodeSummaryTemplate>,
+}
+
+#[derive(Template)]
 #[template(path = "pod_node_summary.html")]
 struct PodNodeSummaryTemplate {
     pod_name: String,
@@ -53,7 +59,7 @@ struct PodNodeSummaryTemplate {
     allocatable_mem: String,
 }
 
-fn pod_node_summary(pod: &Arc<Pod>, node: &Arc<Node>) -> String {
+fn pod_node_summary(pod: &Arc<Pod>, node: &Arc<Node>) -> PodNodeSummaryTemplate {
     let pod_name = pod.name_unchecked();
     let pod_namespace = pod.namespace().unwrap_or_default();
     let pod_status = pod
@@ -77,8 +83,6 @@ fn pod_node_summary(pod: &Arc<Pod>, node: &Arc<Node>) -> String {
         allocatable_mem,
         pod_status,
     }
-    .render()
-    .unwrap()
 }
 
 async fn podnodes(
@@ -91,7 +95,7 @@ async fn podnodes(
         .map(|n| (n.name_unchecked(), n))
         .collect();
 
-    let list_items: Vec<String> = pod_list
+    let items: Vec<PodNodeSummaryTemplate> = pod_list
         .state()
         .iter()
         .map(|p| {
@@ -103,10 +107,13 @@ async fn podnodes(
             let node = node_dict.get(&node_name).unwrap();
             pod_node_summary(p, node)
         })
-        .collect::<Vec<String>>();
-    let html: String = list_items.join("\n");
+        .collect();
 
-    (StatusCode::OK, [("content-type", "text/html")], html)
+    (
+        StatusCode::OK,
+        [("content-type", "text/html")],
+        PodNodeSummaryListTemplate { items },
+    )
 }
 
 #[derive(Template)]
