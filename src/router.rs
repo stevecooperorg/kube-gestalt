@@ -1,8 +1,9 @@
 use crate::store;
 use crate::webserver::Router;
 use askama::Template;
+use axum::extract::Path;
 use axum::response::{Html, IntoResponse};
-use axum::routing::get;
+use axum::routing::{delete, get};
 use axum::Extension;
 use http::StatusCode;
 use k8s_openapi::api::core::v1::{Node, Pod};
@@ -30,6 +31,22 @@ async fn nodes(node_list: Extension<Store<Node>>) -> impl IntoResponse {
     let html: String = list_items.join("\n");
 
     (StatusCode::OK, [("content-type", "text/html")], html)
+}
+
+async fn pod_delete(
+    Path((pod_namespace, pod_name)): Path<(String, String)>,
+    Extension(client): Extension<Client>,
+) -> impl IntoResponse {
+    println!("deleting pod {} in namespace {}", pod_name, pod_namespace);
+    let pod_api = kube::Api::<Pod>::namespaced(client.clone(), &pod_namespace);
+    pod_api
+        .delete(&pod_name, &Default::default())
+        .await
+        .expect(&format!("could not delete pod {}", &pod_name));
+
+    println!("deleted pod {} in namespace {}", pod_name, pod_namespace);
+
+    (StatusCode::OK, [("content-type", "text/html")], "")
 }
 
 async fn pods(pod_list: Extension<Store<Pod>>) -> impl IntoResponse {
@@ -190,7 +207,9 @@ pub fn routes(client: Client) -> Router {
         .route("/random", get(random))
         .route("/nodes", get(nodes))
         .route("/pods", get(pods))
+        .route("/pod/:pod_namespace/:pod_name", delete(pod_delete))
         .route("/podnodes", get(podnodes))
         .layer(Extension(_nodes))
         .layer(Extension(_pods))
+        .layer(Extension(client.clone()))
 }
