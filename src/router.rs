@@ -50,11 +50,10 @@ async fn pod_delete(
 }
 
 async fn pods(pod_list: Extension<Store<Pod>>) -> impl IntoResponse {
-    let list_items: Vec<String> = pod_list
-        .state()
-        .iter()
-        .map(pod_summary)
-        .collect::<Vec<String>>();
+    let mut pods = pod_list.state();
+    pods.sort_by_key(|p| p.name_unchecked());
+
+    let list_items: Vec<String> = pods.iter().map(pod_summary).collect::<Vec<String>>();
     let html: String = list_items.join("\n");
 
     (StatusCode::OK, [("content-type", "text/html")], html)
@@ -112,9 +111,11 @@ async fn podnodes(
         .map(|n| (n.name_unchecked(), n))
         .collect();
 
-    let items: Vec<PodNodeSummaryTemplate> = pod_list
-        .state()
-        .iter()
+    let mut pods = pod_list.state();
+    pods.sort_by_key(|p| p.name_unchecked());
+
+    let items: Vec<PodNodeSummaryTemplate> = pods
+        .into_iter()
         .map(|p| {
             let node_name: String = p
                 .spec
@@ -122,7 +123,7 @@ async fn podnodes(
                 .and_then(|s| s.node_name.clone())
                 .unwrap_or_else(|| "<no node>".to_string());
             let node = node_dict.get(&node_name).unwrap();
-            pod_node_summary(p, node)
+            pod_node_summary(&p, node)
         })
         .collect();
 
